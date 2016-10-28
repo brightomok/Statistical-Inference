@@ -1,0 +1,181 @@
+---
+title: "Exploratory Graphing and Hypothesis Testing"
+author: <a href="http://www.ryantillis.com"> Ryan Tillis </a>
+date: "August 9, 2016"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis
+
+This is a brief graphical and numerical exploration of a data set. The goal is to summarize the data and perform hypothesis tests at 95% confidence intervals.
+
+## Loading the data
+
+```{r beginning}
+library(datasets)
+library(ggplot2)
+library(RColorBrewer)
+library(grDevices)
+
+data(ToothGrowth)
+attach(ToothGrowth)
+
+#A first look shows us that there are 3 variables and 60 observations
+str(ToothGrowth)
+
+#Shows that the dose is in .5 increments with 3 unique levels - converted to factors
+summary(ToothGrowth)
+unique(ToothGrowth$dose)
+ToothGrowth$dose<-as.factor(ToothGrowth$dose)
+
+```
+
+## Graphical Analysis
+
+In this section we explore the relationship between dose size, dose type and tooth length.
+
+```{r pressure, fig.height=3, fig.width=5, echo=FALSE, out.extra='style="float:left"'}
+theme <- theme(
+  panel.background = element_rect(fill = "lightblue",
+                                colour = "lightblue",
+                                size = 0.5, linetype = "solid"),
+  panel.grid.major = element_line(size = 0.5, linetype = 'solid',
+                                colour = "white"), 
+  panel.grid.minor = element_line(size = 0.25, linetype = 'solid',
+                                colour = "white")
+  ) 
+
+ggplot(aes(x = factor(dose), y = len), data = ToothGrowth) + geom_boxplot(aes(fill = factor(dose))) + theme + scale_fill_brewer(palette="PuBu") + labs(title = "Figure 1")
+```
+
+```{r agg1}
+aggregate(len,list(supp,dose),mean)
+```
+
+
+**Figure 1** shows that as doseage increases so does tooth length.
+
+```{r plot2, fig.height = 3, fig.width=5, echo = FALSE, out.extra='style="float:right"'}
+ggplot(aes(x = supp, y = len), data = ToothGrowth) + geom_boxplot(aes(fill = supp)) + theme + scale_fill_brewer(palette="YlOrRd") + labs(title = "Figure 2")
+```
+
+**Figure 2** suggests that Orange Juice is generally more effective than vitamin C across all dose levels.  
+
+.
+
+.
+
+.
+
+In **Figure 3** things get a little more interesting. For the first 2 doseage ranges, Orange Juice appears marginally more effective than vitamin C at stimulating tooth growth. For the 3rd dose it appears a push.
+
+```{r plot3, fig.height = 3, echo = FALSE}
+ggplot(aes(x = supp, y = len), data = ToothGrowth) + geom_boxplot(aes(fill = supp)) + facet_wrap(~ dose) + theme + scale_fill_brewer(palette="YlOrRd")+ labs(title = "Figure 3") + annotate("text", x = 1.5, y = 2, label = c("p = .03","p = .0005","p = .5"))
+```
+
+**Figure 3** shows that the difference between the first 2 dose ranges appears significant but at the highest dose of .5, the two supplements are equally effective. P-values attained from the numerical analysis section below are annotated onto the graph.
+
+## Conclusions
+
+####Reformatting Data
+
+The first task is to transform the data into a useful format for computing confidence intervals. To do this I used the split funciton. From there the relevant columns can be pulled out of the list to perform t.tests.
+
+```{r split}
+#This operation splits the data frame by dose and supplement type. The result is a list 6 data frames each with 10 observations controlled for dose and supplement type.
+
+split_tooth <- split(ToothGrowth, f = list(ToothGrowth$dose, ToothGrowth$supp))
+```
+
+####Computing the Confidence Intervals
+The following conclusions can be stated with 95% confidence levels. P-values are displayed below. Codes for the t.test are included in the appendix.
+
+#####Is Orange Juice more effective than vitamin C across doses? <font size="+2"><span style="color:green">YES</span></font>
+```{r t1, echo = FALSE}
+t.test(c(split_tooth[[1]]$len,split_tooth[[2]]$len,split_tooth[[3]]$len),c(split_tooth[[4]]$len,split_tooth[[5]]$len,split_tooth[[6]]$len), alternative = "greater")$p.value
+```
+
+#####Is Orange Juice more effective than Vitamin C for a .5 dose? <font size="+2"><span style="color:green">YES</span></font>
+```{r t2, echo = FALSE}
+t.test(split_tooth[[1]]$len,split_tooth[[4]]$len, alternative = "greater")$p.value
+```
+#####Is Orange Juice more effective than Vitamin C for a 1 dose? <font size="+2"><span style="color:green">YES</span></font>
+```{r t3, echo = FALSE}
+t.test(split_tooth[[2]]$len,split_tooth[[5]]$len, alternative = "greater")$p.value
+```
+#####Is Orange Juice more effective than Vitamin C for a 2 dose? <font size="+1"> <span style="color:red">INCONCLUSIVE</span></font>
+```{r t4, echo = FALSE}
+t.test(split_tooth[[3]]$len,split_tooth[[6]]$len, alternative = "greater")$p.value
+```
+#####Is a 2 dose (any supp) more effective than a .5 dose? <font size="+2"><span style="color:green">YES</span></font>
+
+```{r t5, echo = FALSE}
+t.test(c(split_tooth[[1]]$len,split_tooth[[4]]$len),c(split_tooth[[2]]$len,split_tooth[[5]]$len), alternative = "less")$p.value
+```
+#####Is a 2 dose more (any supp) effective than a .5 dose? <font size="+2"><span style="color:green">YES</span></font>
+
+```{r t6, echo = FALSE}
+t.test(c(split_tooth[[1]]$len,split_tooth[[4]]$len),c(split_tooth[[3]]$len,split_tooth[[6]]$len), alternative = "less")$p.value
+```
+#####Is a 2 dose more (any supp) effective than a .5 dose? <font size="+2"><span style="color:green">YES</span></font>
+
+```{r t7, echo = FALSE}
+t.test(c(split_tooth[[2]]$len,split_tooth[[5]]$len),c(split_tooth[[3]]$len,split_tooth[[6]]$len), alternative = "less")$p.value
+```
+
+###Appendix - Conf Int  Codes
+
+```{r app, eval = FALSE}
+#Is Orange Juice more effective than vitamin C across doses? <span style="color:green">YES</span>
+t.test(c(split_tooth[[1]]$len,split_tooth[[2]]$len,split_tooth[[3]]$len),c(split_tooth[[4]]$len,split_tooth[[5]]$len,split_tooth[[6]]$len), alternative = "greater")$p.value
+
+#Is Orange Juice more effective than Vitamin C for .5 dose? YES
+t.test(split_tooth[[1]]$len,split_tooth[[4]]$len, alternative = "greater")$p.value
+
+#Is Orange Juice more effective than Vitamin C for 1 dose? YES
+t.test(split_tooth[[2]]$len,split_tooth[[5]]$len, alternative = "greater")$p.value
+
+#Is Orange Juice more effective than Vitamin C for 2 dose? Inconclusive
+t.test(split_tooth[[3]]$len,split_tooth[[6]]$len, alternative = "greater")$p.value
+
+#Is 2 dose more effective that .5 dose? YES
+t.test(c(split_tooth[[1]]$len,split_tooth[[4]]$len),c(split_tooth[[2]]$len,split_tooth[[5]]$len), alternative = "less")$p.value
+
+#Is 2 dose more effective that .5 dose? YES
+t.test(c(split_tooth[[1]]$len,split_tooth[[4]]$len),c(split_tooth[[3]]$len,split_tooth[[6]]$len), alternative = "less")$p.value
+
+#Is 2 dose more effective that .5 dose? YES
+t.test(c(split_tooth[[2]]$len,split_tooth[[5]]$len),c(split_tooth[[3]]$len,split_tooth[[6]]$len), alternative = "less")$p.value
+```
+
+```{r pressureA, fig.height=3, eval=FALSE}
+require(gridExtra)
+
+theme <- theme(
+  panel.background = element_rect(fill = "lightblue",
+                                colour = "lightblue",
+                                size = 0.5, linetype = "solid"),
+  panel.grid.major = element_line(size = 0.5, linetype = 'solid',
+                                colour = "white"), 
+  panel.grid.minor = element_line(size = 0.25, linetype = 'solid',
+                                colour = "white")
+  ) 
+
+#FIGURE 1
+plot1 <- ggplot(aes(x = factor(dose), y = len), data = ToothGrowth) + geom_boxplot(aes(fill = factor(dose))) + theme + scale_fill_brewer(palette="PuBu") + labs(title = "Figure 1")
+
+#FIGURE 2
+plot2 <- ggplot(aes(x = supp, y = len), data = ToothGrowth) + geom_boxplot(aes(fill = supp)) + theme + scale_fill_brewer(palette="YlOrRd") + labs(title = "Figure 2")
+
+grid.arrange(plot1, plot2, ncol=2)
+```
+
+```{r plot2A, fig.height = 3, eval = FALSE}
+#FIGURE 3
+ggplot(aes(x = supp, y = len), data = ToothGrowth) + geom_boxplot(aes(fill = supp)) + facet_wrap(~ dose) + theme + scale_fill_brewer(palette="YlOrRd")+ labs(title = "Figure 3") + annotate("text", x = 1.5, y = 2, label = c("p = .03","p = .0005","p = .5"))
+```
+Check out my website at: <http://www.ryantillis.com/>
